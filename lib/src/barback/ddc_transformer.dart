@@ -10,6 +10,8 @@ import 'package:barback/barback.dart';
 import 'package:cli_util/cli_util.dart' as cli_util;
 import 'package:path/path.dart' as p;
 
+import 'js_module_name.dart';
+
 typedef Future<bool> _InputChecker(AssetId id);
 typedef Future<Asset> _InputGetter(AssetId id);
 typedef Stream<List<int>> _InputReader(AssetId id);
@@ -134,6 +136,7 @@ class DevCompilerEntryPointModuleTransformer extends Transformer
   @override
   void declareOutputs(DeclaringTransform transform) {
     transform.declareOutput(transform.primaryId.addExtension('.js'));
+    transform.declareOutput(transform.primaryId.addExtension('.js.map'));
     transform.declareOutput(transform.primaryId.addExtension('.bootstrap.js'));
     transform.declareOutput(transform.primaryId.addExtension('.module.js'));
     transform.declareOutput(transform.primaryId.addExtension('.module.js.map'));
@@ -288,19 +291,13 @@ void _createAmdBootstrap(AssetId entryPointId, AssetId bootstrapId,
   var appModuleName = p.withoutExtension(
       p.relative(moduleId.path, from: p.dirname(entryPointId.path)));
 
-  // TODO(jakemac53): Sane module name creation, this only works in the most
-  // basic of cases.
-  //
-  // See https://github.com/dart-lang/sdk/issues/27262 for the root issue which
-  // will allow us to not rely on the naming schemes that dartdevc uses
-  // internally, but instead specify our own.
-  var appModuleScope = p.url
-      .split(moduleId.path.substring(0, moduleId.path.indexOf('.dart')))
-      .join("__");
+  var jsOutputModule = (p.split(p.dirname(bootstrapId.path))
+        ..add(pathToJSIdentifier(p.basenameWithoutExtension(bootstrapId.path))))
+      .join('__');
   var bootstrapContent = '''
 require(["$appModuleName", "dart_sdk"], function(app, dart_sdk) {
   dart_sdk._isolate_helper.startRootIsolate(() => {}, []);
-  app.$appModuleScope.main();
+  app.$jsOutputModule.main();
 });
 ''';
   addOutput(new Asset.fromString(bootstrapId, bootstrapContent));
@@ -316,6 +313,21 @@ el.setAttribute("data-main", "$bootstrapModuleName");
 document.head.appendChild(el);
 ''';
   addOutput(new Asset.fromString(entryPointId, entryPointContent));
+
+  // We add an empty sourcemap here, package:test seems to require one, but
+  // there isn't an original src to map to.
+  addOutput(new Asset.fromString(
+      entryPointId.addExtension('.map'),
+      '''
+  {
+    "version":3,
+    "sourceRoot":"",
+    "sources":[],
+    "names":[],
+    "mappings":"",
+    "file":"${p.basename(bootstrapId.path)}"
+  }
+  '''));
 }
 
 /// Copies [ids] to [tmpDir], and returns the set of [File]s that were created.
@@ -468,6 +480,8 @@ Future<bool> _isEntryPoint(
   return false;
 }
 
+const _summaryExtension = 'api.ds';
+
 AssetId _urlToAssetId(AssetId source, String url, TransformLogger logger) {
   var uri = Uri.parse(url);
   if (uri.isAbsolute) {
@@ -496,5 +510,3 @@ Future _writeFile(File file, Stream<List<int>> stream) async {
   await sink.addStream(stream);
   await sink.close();
 }
-
-const _summaryExtension = 'api.ds';
