@@ -21,6 +21,8 @@ typedef void _OutputWriter(Asset);
 /// Copies required resources into each entry point directory.
 ///
 ///  * Copies the `dart_sdk.js` file from the sdk into each entry point dir.
+///  * Copies the `dart_sdk.js.map` file from the sdk into each entry point dir,
+///    if available.
 ///  * Copies the `require.js` file from the sdk into each entry point dir, if
 ///    available.
 class DevCompilerResourceTransformer extends AggregateTransformer
@@ -69,8 +71,10 @@ class DevCompilerResourceTransformer extends AggregateTransformer
 
   @override
   Future declareOutputs(DeclaringAggregateTransform transform) async {
-    transform.declareOutput(new AssetId(
-        transform.package, p.url.join(transform.key, 'dart_sdk.js')));
+    var sdkJs = new AssetId(
+        transform.package, p.url.join(transform.key, 'dart_sdk.js'));
+    transform.declareOutput(sdkJs);
+    transform.declareOutput(sdkJs.addExtension('.map'));
     transform.declareOutput(new AssetId(
         transform.package, p.url.join(transform.key, 'require.js')));
   }
