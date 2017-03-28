@@ -296,7 +296,8 @@ void _createAmdBootstrap(AssetId entryPointId, AssetId bootstrapId,
       p.relative(moduleId.path, from: p.dirname(entryPointId.path)));
 
   var jsOutputModule = (p.split(p.dirname(bootstrapId.path))
-        ..add(pathToJSIdentifier(p.basenameWithoutExtension(bootstrapId.path))))
+        ..add(pathToJSIdentifier(p.basenameWithoutExtension(
+            p.basenameWithoutExtension(bootstrapId.path)))))
       .join('__');
   var bootstrapContent = '''
 require(["$appModuleName", "dart_sdk"], function(app, dart_sdk) {
