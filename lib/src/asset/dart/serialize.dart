@@ -8,9 +8,9 @@ import 'dart:isolate';
 import 'package:async/async.dart';
 import 'package:barback/barback.dart';
 
-//# if source_span
+// if source_span
 import 'package:source_span/source_span.dart';
-//# end
+// end
 
 import 'serialize/exception.dart';
 
@@ -49,7 +49,7 @@ SourceSpan deserializeSpan(Map span) {
 ///
 /// [location] may be a [SourceLocation] or a [SourceLocation].
 Map serializeLocation(location) {
-//# if source_span
+// if source_span
   // TODO(nweiz): convert FileLocations to FileLocations.
   if (location is SourceLocation) {
     return {
@@ -59,7 +59,7 @@ Map serializeLocation(location) {
       'column': location.column
     };
   }
-//# end
+// end
 
   throw new ArgumentError("Unknown type ${location.runtimeType} for location.");
 }

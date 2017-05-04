@@ -1137,7 +1137,7 @@ class PubProcessResult {
 ///
 /// Throws an [ArgumentError] if [path] is just a filename with no directory.
 String topLevelDir(String pathString) {
-  var parts = path.url.split(path.normalize(pathString));
+  var parts = path.url.split(path.url.normalize(pathString));
   String error;
   if (parts.length == 1) {
     error = 'The path does not contain a directory.';
