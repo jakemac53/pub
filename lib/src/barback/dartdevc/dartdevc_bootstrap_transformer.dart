@@ -31,7 +31,10 @@ class DartDevcBootstrapTransformer extends Transformer {
     var parsed =
         parseCompilationUnit(await transform.primaryInput.readAsString());
     if (!isEntrypoint(parsed)) return;
-    await _bootstrapEntrypoint(transform.primaryInput.id, mode, transform);
+    var moduleReader = new ModuleReader(transform.readInputAsString);
+    var assets = await bootstrapEntrypoint(
+        transform.primaryInput.id, mode, moduleReader);
+    assets.forEach(transform.addOutput);
   }
 }
 
@@ -44,9 +47,9 @@ class DartDevcBootstrapTransformer extends Transformer {
 /// * A `$dartEntrypointId.bootstrap.js` file which invokes the top level `main`
 ///   function from the entrypoint module, after performing some necessary SDK
 ///   setup.
-Future _bootstrapEntrypoint(
-    AssetId dartEntrypointId, BarbackMode mode, Transform transform) async {
-  var moduleReader = new ModuleReader(transform.readInputAsString);
+Future<List<Asset>> bootstrapEntrypoint(AssetId dartEntrypointId,
+    BarbackMode mode, ModuleReader moduleReader) async {
+  var outputs = <Asset>[];
   var module = await moduleReader.moduleFor(dartEntrypointId);
 
   // The path to the entrypoint js module as it should appear in the call to
@@ -77,7 +80,7 @@ require(["$appModulePath", "dart_sdk"], function(app, dart_sdk) {
 });
 ''';
   var bootstrapId = dartEntrypointId.addExtension('.bootstrap.js');
-  transform.addOutput(new Asset.fromString(bootstrapId, bootstrapContent));
+  outputs.add(new Asset.fromString(bootstrapId, bootstrapContent));
 
   var bootstrapModuleName = p.withoutExtension(
       p.relative(bootstrapId.path, from: p.dirname(dartEntrypointId.path)));
@@ -89,13 +92,14 @@ el.src = "require.js";
 el.setAttribute("data-main", "$bootstrapModuleName");
 document.head.appendChild(el);
 ''';
-  transform.addOutput(new Asset.fromString(
+  outputs.add(new Asset.fromString(
       dartEntrypointId.addExtension('.js'), entrypointJsContent));
 
   if (mode == BarbackMode.DEBUG) {
-    transform.addOutput(new Asset.fromString(
+    outputs.add(new Asset.fromString(
         dartEntrypointId.addExtension('.js.map'),
         '{"version":3,"sourceRoot":"","sources":[],"names":[],"mappings":"",'
         '"file":""}'));
   }
+  return outputs;
 }

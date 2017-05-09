@@ -12,7 +12,7 @@ import 'module.dart';
 import 'module_reader.dart';
 import 'scratch_space.dart';
 
-final String unlinkedSummaryExtension = '.unlinked.sum';
+const unlinkedSummaryExtension = '.unlinked.sum';
 
 /// Creates unlinked analyzer summaries given [moduleConfigName] files which
 /// describe a set of [Module]s.
@@ -34,17 +34,21 @@ class UnlinkedSummaryTransformer extends Transformer {
         return allAssets;
       });
       // Create a single temp environment for all the modules in this package.
-      scratchSpace = await ScratchSpace.create(allAssetIds, transform.readInput);
-      await Future.wait(modules
-          .map((m) => _createUnlinkedSummaryForModule(m, scratchSpace, transform)));
+      scratchSpace =
+          await ScratchSpace.create(allAssetIds, transform.readInput);
+      await Future.wait(modules.map((m) async {
+        var asset = await createUnlinkedSummaryForModule(
+            m, scratchSpace, transform.logger.error);
+        if (asset != null) transform.addOutput(asset);
+      }));
     } finally {
       scratchSpace?.delete();
     }
   }
 }
 
-Future _createUnlinkedSummaryForModule(
-    Module module, ScratchSpace scratchSpace, Transform transform) async {
+Future<Asset> createUnlinkedSummaryForModule(
+    Module module, ScratchSpace scratchSpace, logError(String error)) async {
   var summaryOutputFile = scratchSpace.fileFor(module.id.unlinkedSummaryId);
   var request = new WorkRequest();
   // TODO(jakemac53): Diet parsing results in erroneous errors later on today,
@@ -65,11 +69,11 @@ Future _createUnlinkedSummaryForModule(
   }));
   var response = await analyzerDriver.doWork(request);
   if (response.exitCode == EXIT_CODE_ERROR) {
-    transform.logger
-        .error('Error creating unlinked summaries for module: ${module.id}.\n'
-            '${response.output}');
+    logError('Error creating unlinked summaries for module: ${module.id}.\n'
+        '${response.output}');
+    return null;
   } else {
-    transform.addOutput(new Asset.fromBytes(
-        module.id.unlinkedSummaryId, summaryOutputFile.readAsBytesSync()));
+    return new Asset.fromBytes(
+        module.id.unlinkedSummaryId, summaryOutputFile.readAsBytesSync());
   }
 }

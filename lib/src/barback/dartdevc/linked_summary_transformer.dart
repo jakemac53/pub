@@ -12,7 +12,7 @@ import 'module_reader.dart';
 import 'scratch_space.dart';
 import 'workers.dart';
 
-final String linkedSummaryExtension = '.linked.sum';
+const linkedSummaryExtension = '.linked.sum';
 
 /// Creates linked analyzer summaries given [moduleConfigName] files which
 /// describe a set of [Module]s.
@@ -45,19 +45,22 @@ class LinkedSummaryTransformer extends Transformer {
       // Create a single temp environment for all the modules in this package.
       scratchSpace =
           await ScratchSpace.create(allAssetIds, transform.readInput);
-      await Future.wait(modules.map((m) => _createLinkedSummaryForModule(
-          m, summariesForModule[m.id], scratchSpace, transform)));
+      await Future.wait(modules.map((m) async {
+        var asset = await createLinkedSummaryForModule(
+            m, summariesForModule[m.id], scratchSpace, transform.logger.error);
+        if (asset != null) transform.addOutput(asset);
+      }));
     } finally {
       scratchSpace?.delete();
     }
   }
 }
 
-Future _createLinkedSummaryForModule(
+Future<Asset> createLinkedSummaryForModule(
     Module module,
     Set<AssetId> unlinkedSummaryIds,
     ScratchSpace scratchSpace,
-    Transform transform) async {
+    void logError(String message)) async {
   var summaryOutputFile = scratchSpace.fileFor(module.id.linkedSummaryId);
   var request = new WorkRequest();
   // TODO(jakemac53): Diet parsing results in erroneous errors in later steps,
@@ -80,11 +83,11 @@ Future _createLinkedSummaryForModule(
   }));
   var response = await analyzerDriver.doWork(request);
   if (response.exitCode == EXIT_CODE_ERROR) {
-    transform.logger
-        .error('Error creating linked summaries for module: ${module.id}.\n'
-            '${response.output}');
+    logError('Error creating linked summaries for module: ${module.id}.\n'
+        '${response.output}');
+    return null;
   } else {
-    transform.addOutput(new Asset.fromBytes(
-        module.id.linkedSummaryId, summaryOutputFile.readAsBytesSync()));
+    return new Asset.fromBytes(
+        module.id.linkedSummaryId, summaryOutputFile.readAsBytesSync());
   }
 }

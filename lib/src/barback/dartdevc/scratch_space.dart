@@ -32,7 +32,11 @@ class ScratchSpace {
     for (var id in assetIds) {
       var filePath = p.join(tempDir.path, _relativePathFor(id));
       ensureDir(p.dirname(filePath));
-      futures.add(createFileFromStream(readAsset(id), filePath));
+      var file = new File(filePath);
+      file.createSync();
+      await readAsset(id).pipe(file.openWrite());
+      // file.writeAsBytes(readAsset(id));?
+      // futures.add(createFileFromStream(readAsset(id), filePath));
     }
     await Future.wait(futures);
     return new ScratchSpace._(tempDir);
